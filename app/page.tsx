@@ -13,6 +13,7 @@ interface Todo {
 }
 
 export default function PortfolioTodoApp() {
+  const [isMounted, setIsMounted] = useState(false); // 追加：マウント状態
   const [todos, setTodos] = useState<Todo[]>([]);
   const [userName, setUserName] = useState('');
   const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
@@ -20,7 +21,11 @@ export default function PortfolioTodoApp() {
   const [deadlineValue, setDeadlineValue] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // ログイン時とデータ更新時にDBから取得
+  // 1. サーバーとクライアントの不一致を防ぐための処理
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const refreshTasks = async () => {
     if (!userName) return;
     setLoading(true);
@@ -39,6 +44,9 @@ export default function PortfolioTodoApp() {
   useEffect(() => {
     if (isUserLoggedIn) refreshTasks();
   }, [isUserLoggedIn]);
+
+  // マウントされる（ブラウザの準備ができる）までは何も表示しない（エラー防止）
+  if (!isMounted) return null;
 
   const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,17 +99,15 @@ export default function PortfolioTodoApp() {
   return (
     <main className="min-h-screen bg-[#F8FAFC] p-4 md:p-12 text-slate-900">
       <div className="max-w-6xl mx-auto">
-        {/* ヘッダー */}
-        <div className="flex justify-between items-end mb-12">
+        <header className="flex justify-between items-end mb-12">
           <div>
             <span className="text-indigo-600 font-bold tracking-widest text-xs uppercase">Portfolio App</span>
             <h2 className="text-4xl font-black text-slate-900 mt-1">{userName}'s Dashboard</h2>
           </div>
           <button onClick={() => setIsUserLoggedIn(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm underline decoration-2 underline-offset-4">Logout</button>
-        </div>
+        </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-          {/* 左側：追加フォーム */}
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
               <h3 className="text-xl font-bold mb-6 flex items-center gap-2">新規タスク追加</h3>
@@ -142,7 +148,6 @@ export default function PortfolioTodoApp() {
             </div>
           </div>
 
-          {/* 右側：リスト表示 */}
           <div className="lg:col-span-8 space-y-10">
             <section>
               <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
