@@ -1,58 +1,72 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Trash2, Plus, CheckCircle2, Circle, Calendar, User, Trophy, Loader2 } from 'lucide-react';
-import { getTodos, addTodo, toggleTodo, deleteTodo } from './actions';
+import { Trash2, Plus, CheckCircle2, Circle, Calendar, Target, Trophy, Loader2, LogOut } from 'lucide-react';
+import { getTodos, addTodo, toggleTodo, deleteTodo, loginUser } from './actions';
+import Link from 'next/link';
 
 interface Todo {
   id: number;
-  user_name: string;
   text: string;
   deadline: string;
   completed: boolean;
 }
 
+interface UserSession {
+  userId: string;
+  nickname: string;
+  purpose: string;
+}
+
 export default function PortfolioTodoApp() {
-  const [isMounted, setIsMounted] = useState(false); // 追加：マウント状態
+  const [isMounted, setIsMounted] = useState(false);
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [userName, setUserName] = useState('');
-  const [isUserLoggedIn, setIsUserLoggedIn] = useState(false);
+  const [userIdInput, setUserIdInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [user, setUser] = useState<UserSession | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [deadlineValue, setDeadlineValue] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
-  // 1. サーバーとクライアントの不一致を防ぐための処理
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   const refreshTasks = async () => {
-    if (!userName) return;
+    if (!user) return;
     setLoading(true);
-    const data = await getTodos(userName);
+    const data = await getTodos(user.userId);
     setTodos(data as Todo[]);
     setLoading(false);
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (userName.trim()) {
-      setIsUserLoggedIn(true);
+    setLoading(true);
+    setLoginError('');
+
+    const result = await loginUser(userIdInput, passwordInput);
+    
+    if (result.success && result.user) {
+      setUser(result.user as UserSession);
+    } else {
+      setLoginError(result.error || "ログインに失敗しました");
     }
+    setLoading(false);
   };
 
   useEffect(() => {
-    if (isUserLoggedIn) refreshTasks();
-  }, [isUserLoggedIn]);
+    if (user) refreshTasks();
+  }, [user]);
 
-  // マウントされる（ブラウザの準備ができる）までは何も表示しない（エラー防止）
   if (!isMounted) return null;
 
   const handleAddTodo = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim() || !deadlineValue) return;
+    if (!inputValue.trim() || !deadlineValue || !user) return;
     setLoading(true);
-    await addTodo(userName, inputValue, deadlineValue);
+    await addTodo(user.userId, inputValue, deadlineValue);
     setInputValue('');
     setDeadlineValue('');
     await refreshTasks();
@@ -68,125 +82,144 @@ export default function PortfolioTodoApp() {
     await refreshTasks();
   };
 
-  // ログイン画面
-  if (!isUserLoggedIn) {
+  // --- ログイン画面 ---
+  if (!user) {
     return (
-      <main className="min-h-screen bg-gradient-to-br from-indigo-600 to-violet-700 flex items-center justify-center p-4">
-        <div className="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md text-center">
-          <h1 className="text-4xl font-black mb-2 text-slate-800 tracking-tighter">My Portfolio</h1>
-          <p className="text-slate-500 mb-8 font-medium">Task Management System</p>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input
-              type="text"
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
-              placeholder="あなたの名前を入力"
-              className="w-full px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold text-lg"
-              required
-            />
-            <button type="submit" className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-indigo-700 shadow-xl shadow-indigo-200 transition-all active:scale-95">
-              ログインして開始
+      <main className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md text-center">
+          <div className="bg-indigo-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Target className="text-indigo-600" size={32} />
+          </div>
+          <h1 className="text-3xl font-black mb-2 text-slate-900">Task Coach</h1>
+          <p className="text-slate-500 mb-8 font-medium">人生の目的を見失わないために。</p>
+          
+          <form onSubmit={handleLogin} className="space-y-4 text-left">
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-1 block">User ID</label>
+              <input
+                type="text"
+                value={userIdInput}
+                onChange={(e) => setUserIdInput(e.target.value)}
+                placeholder="ユーザーIDを入力"
+                className="w-full px-5 py-4 bg-white border-2 border-slate-200 text-slate-900 rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold placeholder:text-slate-300"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 mb-1 block">Password</label>
+              <input
+                type="password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="パスワードを入力"
+                className="w-full px-5 py-4 bg-white border-2 border-slate-200 text-slate-900 rounded-2xl focus:border-indigo-500 outline-none transition-all font-bold placeholder:text-slate-300"
+                required
+              />
+            </div>
+            {loginError && <p className="text-red-500 text-xs font-bold text-center">{loginError}</p>}
+            
+            <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 mt-4 shadow-lg shadow-indigo-100">
+              {loading ? <Loader2 className="animate-spin" /> : "ログイン"}
             </button>
           </form>
+
+          <div className="mt-8 pt-6 border-t border-slate-100">
+            <p className="text-sm text-slate-400 font-bold mb-4">アカウントをお持ちでないですか？</p>
+            <Link href="/register" className="text-indigo-600 font-black hover:underline underline-offset-4">
+              新規登録はこちら
+            </Link>
+          </div>
         </div>
       </main>
     );
   }
 
+  // --- メインダッシュボード ---
   const activeTasks = todos.filter(t => !t.completed);
   const completedTasks = todos.filter(t => t.completed);
 
   return (
     <main className="min-h-screen bg-[#F8FAFC] p-4 md:p-12 text-slate-900">
       <div className="max-w-6xl mx-auto">
-        <header className="flex justify-between items-end mb-12">
-          <div>
-            <span className="text-indigo-600 font-bold tracking-widest text-xs uppercase">Portfolio App</span>
-            <h2 className="text-4xl font-black text-slate-900 mt-1">{userName}'s Dashboard</h2>
+        <header className="flex flex-col md:flex-row md:justify-between md:items-center gap-6 mb-12">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex-1">
+            <div className="flex items-center gap-2 text-indigo-600 mb-1">
+              <Target size={18} />
+              <span className="font-black text-xs uppercase tracking-widest">Purpose of Life</span>
+            </div>
+            <p className="text-xl font-bold text-slate-800 italic">“ {user.purpose} ”</p>
           </div>
-          <button onClick={() => setIsUserLoggedIn(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm underline decoration-2 underline-offset-4">Logout</button>
+          <div className="flex items-center gap-6 self-end md:self-center">
+            <div className="text-right">
+              <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Welcome</p>
+              <p className="text-lg font-black text-slate-900">{user.nickname}</p>
+            </div>
+            <button onClick={() => setUser(null)} className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:text-red-500 transition-colors shadow-sm">
+              <LogOut size={20} />
+            </button>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           <div className="lg:col-span-4 space-y-6">
             <div className="bg-white p-8 rounded-[2rem] shadow-sm border border-slate-100">
-              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">新規タスク追加</h3>
+              <h3 className="text-xl font-bold mb-6">今日のタスクを追加</h3>
               <form onSubmit={handleAddTodo} className="space-y-5">
                 <div>
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 block">Task Name</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Task Content</label>
                   <input
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
-                    placeholder="何を達成しますか？"
+                    className="w-full px-4 py-3 bg-white border border-slate-300 text-slate-900 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
+                    placeholder="何をしますか？"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-2 block">Deadline</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase ml-1 block mb-1">Deadline</label>
                   <input
                     type="date"
                     value={deadlineValue}
                     onChange={(e) => setDeadlineValue(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-4 py-3 bg-white border border-slate-300 text-slate-900 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-bold"
                   />
                 </div>
-                <button 
-                  disabled={loading}
-                  type="submit" 
-                  className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition flex items-center justify-center gap-2"
-                >
-                  {loading ? <Loader2 className="animate-spin" /> : <><Plus size={20} /> タスクを登録</>}
+                <button disabled={loading} type="submit" className="w-full bg-slate-900 text-white py-4 rounded-xl font-bold hover:bg-slate-800 transition flex items-center justify-center gap-2">
+                  {loading ? <Loader2 className="animate-spin" /> : <><Plus size={20} /> 追加</>}
                 </button>
               </form>
             </div>
             
-            <div className="bg-indigo-600 p-8 rounded-[2rem] text-white shadow-2xl shadow-indigo-200">
+            <div className="bg-indigo-600 p-8 rounded-[2rem] text-white shadow-xl shadow-indigo-100">
               <Trophy size={40} className="mb-4 text-indigo-200" />
-              <p className="text-indigo-100 font-medium">現在の達成実績</p>
-              <h4 className="text-5xl font-black mt-2">{completedTasks.length} <span className="text-xl font-normal opacity-60">Tasks</span></h4>
+              <p className="text-indigo-100 font-medium">達成したタスク</p>
+              <h4 className="text-5xl font-black mt-2">{completedTasks.length}</h4>
             </div>
           </div>
 
           <div className="lg:col-span-8 space-y-10">
             <section>
-              <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
-                Active Tasks <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded text-[10px]">{activeTasks.length}</span>
+              <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6 flex items-center gap-2">
+                実行中のタスク <span className="text-indigo-500">{activeTasks.length}</span>
               </h3>
               <div className="space-y-4">
                 {activeTasks.map(todo => (
-                  <div key={todo.id} className="bg-white p-6 rounded-2xl border border-slate-100 flex items-center justify-between group hover:border-indigo-300 transition-all shadow-sm hover:shadow-md">
+                  <div key={todo.id} className="bg-white p-6 rounded-2xl border border-slate-100 flex items-center justify-between group shadow-sm hover:border-indigo-300 transition-all">
                     <div className="flex items-center gap-5 flex-1 cursor-pointer" onClick={() => handleToggle(todo.id, todo.completed)}>
                       <Circle size={28} className="text-slate-200 group-hover:text-indigo-500 transition-colors" />
                       <div>
                         <p className="font-bold text-slate-800 text-lg">{todo.text}</p>
-                        <p className="text-sm text-slate-400 font-medium flex items-center gap-1 mt-1">
-                          <Calendar size={14} /> 期限: {todo.deadline}
-                        </p>
+                        <p className="text-sm text-slate-400 flex items-center gap-1 mt-1 font-bold"><Calendar size={14} /> {todo.deadline}</p>
                       </div>
                     </div>
-                    <button onClick={() => handleDelete(todo.id)} className="text-slate-200 hover:text-red-500 p-2 transition-colors">
-                      <Trash2 size={20} />
-                    </button>
+                    <button onClick={() => handleDelete(todo.id)} className="text-slate-200 hover:text-red-500 transition-colors"><Trash2 size={20} /></button>
                   </div>
                 ))}
-              </div>
-            </section>
-
-            <section>
-              <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em] mb-6">Completed Experience</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {completedTasks.map(todo => (
-                  <div key={todo.id} className="bg-slate-100/50 border border-slate-200 p-4 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                      <CheckCircle2 size={20} className="text-green-500 flex-shrink-0" />
-                      <span className="text-slate-500 line-through font-medium truncate italic">{todo.text}</span>
-                    </div>
-                    <button onClick={() => handleDelete(todo.id)} className="text-slate-300 hover:text-red-500 transition-colors">
-                      <Trash2 size={16} />
-                    </button>
+                {activeTasks.length === 0 && (
+                  <div className="text-center py-20 bg-white rounded-[2rem] border-2 border-dashed border-slate-100 text-slate-300 font-bold">
+                    現在、未完了のタスクはありません。
                   </div>
-                ))}
+                )}
               </div>
             </section>
           </div>
